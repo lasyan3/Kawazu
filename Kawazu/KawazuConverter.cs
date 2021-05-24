@@ -93,6 +93,22 @@ namespace Kawazu
                 var builder = new StringBuilder(); // StringBuilder for the final output string.
                 var text = nodes.Select(node => new Division(node, Utilities.GetTextType(node.Surface), system))
                     .ToList();
+
+                #region Analyze the whole text to find special kanji syntax
+                for (int i = 0; i < text.Count; i++)
+                {
+                    var division = text[i];
+                    for (int j = 0; j < division.Count; j++)
+                    {
+                        var ele = division[j];
+                        if (ele.Type == TextType.PureKanji)
+                        {
+                            HiraganaEnhanced(text, i, j);
+                        }
+                    }
+                }
+                #endregion
+
                 switch (to)
                 {
                     case To.Romaji:
@@ -289,6 +305,57 @@ namespace Kawazu
             });
             
             return result;
+        }
+
+        private void HiraganaEnhanced(List<Division> text, int i, int j)
+        {
+            var ele = text[i][j];
+            // hyaku / byaku / pyaku
+            if (ele.Element == "百" && i > 0 && text[i - 1].Count == 1)
+            {
+                var prevEle = text[i - 1][0];
+                switch (prevEle.Element)
+                {
+                    case "三": prevEle.HiraNotation = "さん"; ele.HiraNotation = "びゃく"; break;
+                    case "六": prevEle.HiraNotation = "ろっ"; ele.HiraNotation = "ぴゃく"; break;
+                    case "八": prevEle.HiraNotation = "はっ"; ele.HiraNotation = "ぴゃく"; break;
+                };
+            }
+            // sen / zen
+            else if (ele.Element == "千" && i > 0 && text[i - 1].Count == 1)
+            {
+                var prevEle = text[i - 1][0];
+                switch (prevEle.Element)
+                {
+                    case "三": ele.HiraNotation = "ぜん"; break;
+                    case "八": prevEle.HiraNotation = "はっ"; break;
+                };
+            }
+            // Time - hours
+            else if (ele.Element == "時" && i > 0 && text[i - 1].Count == 1)
+            {
+                var prevEle = text[i - 1][0];
+                switch (prevEle.Element)
+                {
+                    case "四": ele.HiraNotation = "よ"; break;
+                    case "七": prevEle.HiraNotation = "はっ"; break;
+                    case "九": prevEle.HiraNotation = "く"; break;
+                };
+            }
+            // Time - minutes
+            else if (ele.Element == "分" && i > 0 && text[i - 1].Count == 1)
+            {
+                var prevEle = text[i - 1][0];
+                switch (prevEle.Element)
+                {
+                    case "一": prevEle.HiraNotation = "いっ"; ele.HiraNotation = "ぷん"; break;
+                    case "三": ele.HiraNotation = "ぷん"; break;
+                    case "四": ele.HiraNotation = "ぷん"; break;
+                    case "六": prevEle.HiraNotation = "ろっ"; ele.HiraNotation = "ぷん"; break;
+                    case "八": prevEle.HiraNotation = "はっ"; ele.HiraNotation = "ぷん"; break;
+                    case "十": prevEle.HiraNotation = "じゅ"; ele.HiraNotation = "ぷん"; break;
+                };
+            }
         }
     }
 

@@ -6,11 +6,11 @@
     /// "今日","の","映画","は","面白","か","っ","た" are all JapaneseElement
     /// for each of them is a unit of pronunciation.
     /// </summary>
-    public readonly struct JapaneseElement
+    public class JapaneseElement
     {
         public string Element { get; }
 
-        public string HiraNotation { get; }
+        public string HiraNotation { get; set; }
         public string HiraPronunciation { get; }
         public string KataNotation { get; }
         public string KataPronunciation { get; }
