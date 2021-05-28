@@ -162,5 +162,10 @@ namespace Kawazu
                     throw new ArgumentOutOfRangeException(nameof(type), type, null);
             }
         }
+
+        public Division(List<JapaneseElement> lstElements)
+        {
+            AddRange(lstElements);
+        }
     }
 }

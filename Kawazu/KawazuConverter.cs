@@ -4,6 +4,7 @@ using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
 using NMeCab.Specialized;
+using Wacton.Desu.Japanese;
 
 namespace Kawazu
 {
@@ -14,10 +15,13 @@ namespace Kawazu
     public class KawazuConverter: IDisposable
     {
         private readonly MeCabIpaDicTagger _tagger;
+        private readonly List<IJapaneseEntry> _japEntries;
 
         public KawazuConverter()
         {
             _tagger = MeCabIpaDicTagger.Create();
+            JapaneseDictionary japDico = new JapaneseDictionary();
+            _japEntries = japDico.GetEntries().ToList();
         }
 
         protected virtual void Dispose(bool disposing)
@@ -93,6 +97,32 @@ namespace Kawazu
                 var builder = new StringBuilder(); // StringBuilder for the final output string.
                 var text = nodes.Select(node => new Division(node, Utilities.GetTextType(node.Surface), system))
                     .ToList();
+
+                // Detect solo kanjis, group them in sequentials blocks and search those blocks in the japanese dictionary from Desu
+                List<Division> textAnalyzed = new List<Division>();
+                string block = "";
+                foreach (var div in text)
+                {
+                    if (div.Surface.Length > 1 || !Utilities.IsKanji(div.Surface[0])) // Not a kanji or multiple kanjis --> end of current block
+                    {
+                        if (!string.IsNullOrEmpty(block)) // If a block has begun, analyze it
+                        {
+                            textAnalyzed.AddRange(AnalyzeBlock(block));
+                            block = "";
+                        }
+                        textAnalyzed.Add(div);
+                    }
+                    else
+                    {
+                        block += div.Surface; // Add kanji to current block
+                    }
+                }
+                if (!string.IsNullOrEmpty(block))
+                {
+                    textAnalyzed.AddRange(AnalyzeBlock(block));
+                }
+                text = textAnalyzed; // Replace with analyzed text
+
                 switch (to)
                 {
                     case To.Romaji:
@@ -289,6 +319,34 @@ namespace Kawazu
             });
             
             return result;
+        }
+
+        private List<Division> AnalyzeBlock(string block)
+        {
+            List<Division> lstNodes = new List<Division>();
+            string _trash = "";
+            IJapaneseEntry entryFound;
+            do
+            {
+                entryFound = _japEntries.FirstOrDefault(j => j.Kanjis.Any(k => k.Text == block));
+                if (entryFound != null)
+                {
+                    // Found a match in the dictionary --> take the first reading (arbitrary choice)
+                    string entryHira = entryFound.Readings.ToList()[0].Text;
+                    JapaneseElement node = new JapaneseElement(block, Utilities.ToRawKatakana(entryHira), Utilities.ToRawKatakana(entryHira), TextType.PureKanji);
+                    lstNodes.Add(new Division(new List<JapaneseElement>() { node }));
+                }
+                else // No match found for this list of kanjis --> remove the last kanji and retry
+                {
+                    _trash = block.Substring(block.Length - 1, 1) + _trash;
+                    block = block.Substring(0, block.Length - 1);
+                }
+            } while (!string.IsNullOrEmpty(block) && entryFound == null);
+            if (!string.IsNullOrEmpty(_trash)) // if trash is not empty (meaning some kanjis were removed) --> analyze it
+            {
+                lstNodes.AddRange(AnalyzeBlock(_trash));
+            }
+            return lstNodes;
         }
     }
 
